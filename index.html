@@ -108,7 +108,13 @@
     const onUp=e=>{dragging=false;try{model.token.releasePointerCapture(e.pointerId)}catch{}};
     model.token.addEventListener('pointerdown',onDown);window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp)}
   function updateEffectFromDistance(model){const rect=model.el.getBoundingClientRect();const dx=model.tokenPos.x-model.zero.x;const dy=model.tokenPos.y-model.zero.y;const dist=Math.hypot(dx,dy);model.lastDist=dist;const maxDx=Math.max(model.zero.x,rect.width-model.zero.x);const maxDy=Math.max(model.zero.y,rect.height-model.zero.y);const maxDist=Math.hypot(maxDx,maxDy);const t=clamp(dist/maxDist,0,1);const {min,max,type,filter,unit}=model.def;const val=lerp(min,max,t);model.meterFill.style.width=(t*100).toFixed(1)+'%';model.distEl.textContent=Math.round(dist)+' px';if(type==='rotate'){TRANSFORM_STATE.rotate=val+(unit||'')}else{FILTER_STATE[filter]=val+(unit||'')}applyEffects();checkWin()}
-  function checkWin(){if(boxes.length&&boxes.every(b=>b.lastDist<=WIN_RADIUS)){winModal.classList.add('open')}}
+  function checkWin(){
+    if(boxes.length && boxes.every(b=>b.lastDist<=WIN_RADIUS)){
+      // Increment to next image before showing win modal
+      shuffleImage();
+      winModal.classList.add('open');
+    }
+  }
   const FILTER_STATE={blur:'16px',blur2:'8px',invert:'0.9'};const TRANSFORM_STATE={rotate:'18deg'};
   function applyEffects(){const seq=[`blur(${FILTER_STATE.blur})`,`blur(${FILTER_STATE.blur2})`,`invert(${FILTER_STATE.invert})`];imgFrame.style.filter=seq.join(' ');imgFrame.style.transform=`rotate(${TRANSFORM_STATE.rotate})`}
   function resetTargets(){boxes.forEach(b=>{positionRandomZero(b);updateEffectFromDistance(b)});winModal.classList.remove('open')}
