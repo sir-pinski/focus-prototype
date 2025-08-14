@@ -51,7 +51,7 @@
   <div class="wrap">
     <section class="stage" id="stage">
       <div class="img-frame" id="imgFrame" style="filter: blur(16px) invert(0.9); transform: rotate(18deg);">
-        <img id="mainImg" alt="demo" src="https://cdnb.artstation.com/p/assets/images/images/019/452/489/large/mario-v-popup-6.jpg?1563545838" />
+        <img id="mainImg" alt="demo" src="" />
       </div>
       <div class="grid-overlay"></div>
       <div class="hud">
@@ -79,6 +79,7 @@
   const IMAGES=[
     'https://dreamimaginations.com/wp-content/uploads/2024/08/Magical-Fantasy-Decor-Ideas-for-Your-Bedroom-1024x683.jpg',
     'https://pbs.twimg.com/media/EqvL_aFUUAE1I14?format=jpg&name=large',
+    'https://cdnb.artstation.com/p/assets/images/images/019/452/489/large/mario-v-popup-6.jpg?1563545838',
     'https://i.ytimg.com/vi/kBZJhKDhu60/maxresdefault.jpg']
   const controlsEl=document.getElementById('controls'),imgFrame=document.getElementById('imgFrame'),mainImg=document.getElementById('mainImg'),winModal=document.getElementById('winModal');
   const boxes=[];function clamp(v,min,max){return Math.max(min,Math.min(max,v))}function lerp(a,b,t){return a+(b-a)*t}
@@ -111,7 +112,13 @@
   const FILTER_STATE={blur:'16px',blur2:'8px',invert:'0.9'};const TRANSFORM_STATE={rotate:'18deg'};
   function applyEffects(){const seq=[`blur(${FILTER_STATE.blur})`,`blur(${FILTER_STATE.blur2})`,`invert(${FILTER_STATE.invert})`];imgFrame.style.filter=seq.join(' ');imgFrame.style.transform=`rotate(${TRANSFORM_STATE.rotate})`}
   function resetTargets(){boxes.forEach(b=>{positionRandomZero(b);updateEffectFromDistance(b)});winModal.classList.remove('open')}
-  function shuffleImage(){const current=mainImg.src;let next=IMAGES[0];for(let i=0;i<8;i++){const cand=IMAGES[Math.floor(Math.random()*IMAGES.length)];if(cand!==current){next=cand;break}}mainImg.src=next}
+  let currentImageIndex = Math.floor(Math.random() * IMAGES.length);
+  function shuffleImage(){
+    currentImageIndex = (currentImageIndex + 1) % IMAGES.length;
+    mainImg.src = IMAGES[currentImageIndex];
+  }
+  // Set initial random image
+  mainImg.src = IMAGES[currentImageIndex];
   function toggleTargets(){document.body.classList.toggle('reveal');document.getElementById('toggleTargetsBtn').textContent=document.body.classList.contains('reveal')?'Hide clues':'Reveal clues'}
   CONTROL_DEFS.forEach(createBox);
   document.getElementById('resetBtn').addEventListener('click',resetTargets);
