@@ -65,12 +65,11 @@
   <div class="modal" id="winModal">
     <div class="modal-card">
       <h2>🎉 You solved it!</h2>
-      <p>All four tokens are within 8px of their targets.</p>
       <button class="btn" id="playAgainBtn">Play again</button>
     </div>
   </div>
   <script>
-  const BOX_COUNT=4,BOX_PADDING=10,TOKEN_SIZE=64,WIN_RADIUS=10,TARGET_INSET=30,TARGET_TOP_INSET=70;
+  const BOX_COUNT=4,BOX_PADDING=10,TOKEN_SIZE=64,WIN_RADIUS=12,TARGET_INSET=30,TARGET_TOP_INSET=70;
   const CONTROL_DEFS=[
     {key:'A',label:'Blur A',type:'filter',filter:'blur',unit:'px',min:0,max:24},
     {key:'B',label:'Blur B',type:'filter',filter:'blur2',unit:'px',min:0,max:18},
