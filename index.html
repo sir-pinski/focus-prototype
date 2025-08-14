@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Drag-to-Clarity — prototype</title>
+  <style>
+    :root{
+      --bg: #0f1220;
+      --panel: #151a2e;
+      --ink: #e6e8ef;
+      --accent: #7dd3fc;
+      --muted: #7a8099;
+      --corner: 18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:var(--bg);color:var(--ink)}
+    .wrap{height:100%;display:grid;grid-template-rows:2fr 1fr;gap:12px;padding:12px}
+    .stage{position:relative;border-radius:var(--corner);overflow:hidden;background:linear-gradient(135deg,#1e243e,#101424)}
+    .img-frame{position:absolute;inset:0;display:grid;place-items:center;transform-origin:center center}
+    .img-frame img{max-width:100%;max-height:100%;object-fit:cover;display:block}
+    .grid-overlay{position:absolute;inset:0;background:linear-gradient(transparent 95%, rgba(255,255,255,.04) 95%), linear-gradient(90deg, transparent 95%, rgba(255,255,255,.04) 95%);background-size:24px 24px;pointer-events:none}
+    .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .box{position:relative;background:var(--panel);border-radius:var(--corner);box-shadow:0 10px 30px rgba(0,0,0,.25) inset, 0 2px 8px rgba(0,0,0,.15);padding:10px}
+    .box-head,.meter,.dist,.target{display:none}
+    body.reveal .box-head{display:flex}
+    body.reveal .meter{display:block}
+    body.reveal .dist{display:block}
+    body.reveal .target{display:block}
+    .box-head{align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);padding:0 4px}
+    .box-id{font-weight:600;color:#c7d2fe}
+    .target{position:absolute;width:14px;height:14px;border-radius:999px;border:2px solid rgba(125,211,252,.7);box-shadow:0 0 0 2px rgba(125,211,252,.12);transform:translate(-50%,-50%);pointer-events:none}
+    .target::after{content:"";position:absolute;inset:4px;border-radius:999px;background:rgba(125,211,252,.55)}
+    .token{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:16px;background:#0b0f1c;border:1px solid #263049;display:grid;place-items:center;font-size:24px;font-weight:800;letter-spacing:.06em;color:#c7f9ff;cursor:grab;user-select:none;touch-action:none;box-shadow:0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05)}
+    .token:active{cursor:grabbing}
+    .dist{font-size:11px;color:#a8b3d9;margin:6px 6px 2px}
+    .meter{height:6px;background:#0b0f1c;border-radius:999px;overflow:hidden;border:1px solid #263049;margin:4px 6px 0}
+    .meter > span{display:block;height:100%;background:linear-gradient(90deg,#60a5fa,#7dd3fc 60%,#a7f3d0);width:0%}
+    .hud{position:absolute;bottom:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap}
+    .btn{background:#11162a;color:var(--ink);border:1px solid #2a3355;border-radius:12px;padding:8px 12px;font-weight:600;cursor:pointer}
+    .btn:hover{filter:brightness(1.1)}
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);}
+    .modal.open{display:flex}
+    .modal-card{background:#0f1530;border:1px solid #2a3355;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:24px 28px;min-width:280px;text-align:center}
+    .modal-card h2{margin:0 0 10px;font-size:22px}
+    .modal-card p{margin:0 0 16px;color:#aeb6d6}
+    @media (max-width:900px){.wrap{grid-template-rows:1.5fr 1fr}.controls{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="stage" id="stage">
+      <div class="img-frame" id="imgFrame" style="filter: blur(16px) invert(0.9); transform: rotate(18deg);">
+        <img id="mainImg" alt="demo" src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1600&auto=format&fit=crop" />
+      </div>
+      <div class="grid-overlay"></div>
+      <div class="hud">
+        <button class="btn" id="toggleTargetsBtn">Reveal clues</button>
+        <button class="btn" id="resetBtn">Reset targets</button>
+        <button class="btn" id="shuffleImgBtn">Shuffle image</button>
+      </div>
+    </section>
+    <section class="controls" id="controls"></section>
+  </div>
+  <div class="modal" id="winModal">
+    <div class="modal-card">
+      <h2>🎉 You solved it!</h2>
+      <p>All four tokens are within 8px of their targets.</p>
+      <button class="btn" id="playAgainBtn">Play again</button>
+    </div>
+  </div>
+  <script>
+  const BOX_COUNT=4,BOX_PADDING=10,TOKEN_SIZE=64,WIN_RADIUS=8,TARGET_INSET=30,TARGET_TOP_INSET=70;
+  const CONTROL_DEFS=[
+    {key:'A',label:'Blur A',type:'filter',filter:'blur',unit:'px',min:0,max:24},
+    {key:'B',label:'Blur B',type:'filter',filter:'blur2',unit:'px',min:0,max:18},
+    {key:'C',label:'Invert',type:'filter',filter:'invert',unit:'',min:0,max:1},
+    {key:'D',label:'Rotate',type:'rotate',filter:'rotate',unit:'deg',min:0,max:25}
+  ];
+  const IMAGES=[
+    'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1600&auto=format&fit=crop']
+  const controlsEl=document.getElementById('controls'),imgFrame=document.getElementById('imgFrame'),mainImg=document.getElementById('mainImg'),winModal=document.getElementById('winModal');
+  const boxes=[];function clamp(v,min,max){return Math.max(min,Math.min(max,v))}function lerp(a,b,t){return a+(b-a)*t}
+  function createBox(def,index){
+    const box=document.createElement('div');box.className='box';
+    const head=document.createElement('div');head.className='box-head';head.innerHTML=`<span class="box-id">${def.key}</span><span>${def.label}</span>`;box.appendChild(head);
+    const dist=document.createElement('div');dist.className='dist';box.appendChild(dist);
+    const meter=document.createElement('div');meter.className='meter';const meterFill=document.createElement('span');meter.appendChild(meterFill);box.appendChild(meter);
+    const target=document.createElement('div');target.className='target';box.appendChild(target);
+    const token=document.createElement('div');token.className='token';token.textContent=def.key;box.appendChild(token);
+    controlsEl.appendChild(box);
+    const model={el:box,token,target,meterFill,distEl:dist,def,zero:{x:0,y:0},tokenPos:{x:0,y:0},lastDist:Infinity};
+    boxes.push(model);positionRandomZero(model);centerToken(model);attachDrag(model);
+  }
+  function positionRandomZero(model){
+    const r=model.el.getBoundingClientRect();
+    const x=Math.random()*(r.width-TARGET_INSET*2)+TARGET_INSET;
+    const y=Math.random()*(r.height-TARGET_TOP_INSET-TARGET_INSET)+TARGET_TOP_INSET;
+    model.zero={x,y};model.target.style.left=x+'px';model.target.style.top=y+'px';
+  }
+  function centerToken(model){const r=model.el.getBoundingClientRect();model.tokenPos={x:r.width/2,y:r.height/2};applyTokenPos(model);updateEffectFromDistance(model)}
+  function applyTokenPos(model){model.token.style.left=model.tokenPos.x+'px';model.token.style.top=model.tokenPos.y+'px'}
+  function attachDrag(model){let dragging=false,offset={x:0,y:0};
+    const onDown=e=>{e.preventDefault();dragging=true;model.token.setPointerCapture(e.pointerId);const rect=model.token.getBoundingClientRect();offset.x=e.clientX-rect.left;offset.y=e.clientY-rect.top};
+    const onMove=e=>{if(!dragging)return;const rect=model.el.getBoundingClientRect();let x=e.clientX-rect.left-offset.x+TOKEN_SIZE/2;let y=e.clientY-rect.top-offset.y+TOKEN_SIZE/2;const minX=BOX_PADDING+TOKEN_SIZE/2;const minY=BOX_PADDING+20+TOKEN_SIZE/2;const maxX=rect.width-BOX_PADDING-TOKEN_SIZE/2;const maxY=rect.height-BOX_PADDING-TOKEN_SIZE/2;x=clamp(x,minX,maxX);y=clamp(y,minY,maxY);model.tokenPos={x,y};applyTokenPos(model);updateEffectFromDistance(model)};
+    const onUp=e=>{dragging=false;try{model.token.releasePointerCapture(e.pointerId)}catch{}};
+    model.token.addEventListener('pointerdown',onDown);window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp)}
+  function updateEffectFromDistance(model){const rect=model.el.getBoundingClientRect();const dx=model.tokenPos.x-model.zero.x;const dy=model.tokenPos.y-model.zero.y;const dist=Math.hypot(dx,dy);model.lastDist=dist;const maxDx=Math.max(model.zero.x,rect.width-model.zero.x);const maxDy=Math.max(model.zero.y,rect.height-model.zero.y);const maxDist=Math.hypot(maxDx,maxDy);const t=clamp(dist/maxDist,0,1);const {min,max,type,filter,unit}=model.def;const val=lerp(min,max,t);model.meterFill.style.width=(t*100).toFixed(1)+'%';model.distEl.textContent=Math.round(dist)+' px';if(type==='rotate'){TRANSFORM_STATE.rotate=val+(unit||'')}else{FILTER_STATE[filter]=val+(unit||'')}applyEffects();checkWin()}
+  function checkWin(){if(boxes.length&&boxes.every(b=>b.lastDist<=WIN_RADIUS)){winModal.classList.add('open')}}
+  const FILTER_STATE={blur:'16px',blur2:'8px',invert:'0.9'};const TRANSFORM_STATE={rotate:'18deg'};
+  function applyEffects(){const seq=[`blur(${FILTER_STATE.blur})`,`blur(${FILTER_STATE.blur2})`,`invert(${FILTER_STATE.invert})`];imgFrame.style.filter=seq.join(' ');imgFrame.style.transform=`rotate(${TRANSFORM_STATE.rotate})`}
+  function resetTargets(){boxes.forEach(b=>{positionRandomZero(b);updateEffectFromDistance(b)});winModal.classList.remove('open')}
+  function shuffleImage(){const current=mainImg.src;let next=IMAGES[0];for(let i=0;i<8;i++){const cand=IMAGES[Math.floor(Math.random()*IMAGES.length)];if(cand!==current){next=cand;break}}mainImg.src=next}
+  function toggleTargets(){document.body.classList.toggle('reveal');document.getElementById('toggleTargetsBtn').textContent=document.body.classList.contains('reveal')?'Hide clues':'Reveal clues'}
+  CONTROL_DEFS.forEach(createBox);
+  document.getElementById('resetBtn').addEventListener('click',resetTargets);
+  document.getElementById('shuffleImgBtn').addEventListener('click',shuffleImage);
+  document.getElementById('toggleTargetsBtn').addEventListener('click',toggleTargets);
+  document.getElementById('playAgainBtn').addEventListener('click',()=>{resetTargets()});
+  applyEffects();
+  window.addEventListener('resize',()=>{boxes.forEach(b=>{const rect=b.el.getBoundingClientRect();b.zero.x=clamp(b.zero.x,BOX_PADDING,rect.width-BOX_PADDING);b.zero.y=clamp(b.zero.y,BOX_PADDING,rect.height-BOX_PADDING);b.target.style.left=b.zero.x+'px';b.target.style.top=b.zero.y+'px';const minX=BOX_PADDING+TOKEN_SIZE/2;const minY=BOX_PADDING+20+TOKEN_SIZE/2;const maxX=rect.width-BOX_PADDING-TOKEN_SIZE/2;const maxY=rect.height-BOX_PADDING-TOKEN_SIZE/2;b.tokenPos.x=clamp(b.tokenPos.x,minX,maxX);b.tokenPos.y=clamp(b.tokenPos.y,minY,maxY);applyTokenPos(b);updateEffectFromDistance(b)})})
+  </script>
+</body>
+</html>
